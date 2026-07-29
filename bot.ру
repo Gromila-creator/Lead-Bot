@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart, StateFilter
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -11,6 +11,10 @@ from openai import AsyncOpenAI
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from dotenv import load_dotenv
+
+# ========== ЗАГРУЗКА ПЕРЕМЕННЫХ ИЗ .env ==========
+load_dotenv()
 
 # ========== НАСТРОЙКИ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -19,9 +23,9 @@ SITE_URL = "https://borisov.store"
 PORT = int(os.getenv("PORT", 10000))
 
 # ID Google Таблицы (вставь свой после создания)
-SHEET_ID = "ТВОЙ_SHEET_ID"
+SHEET_ID = "ТВОЙ_SHEET_ID"               # <-- замени на реальный ID
 # Твой Telegram ID для уведомлений (узнать можно у @userinfobot)
-ADMIN_CHAT_ID = 123456789  # замени на свой
+ADMIN_CHAT_ID = 123456789                # <-- замени на свой ID
 
 # ========== АВТО-СБРОС WEBHOOK ==========
 async def delete_webhook():
@@ -165,9 +169,13 @@ async def start(message: types.Message):
         reply_markup=main_kb,
     )
 
-# Выход из формы заявки по команде /cancel
-@dp.message(CommandStart())
+# Команда /cancel — отмена оформления заявки
+@dp.message(Command("cancel"))
 async def cancel_order(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        await message.answer("Нет активной заявки для отмены.")
+        return
     await state.clear()
     await message.answer("Оформление заявки отменено.", reply_markup=main_kb)
 
@@ -206,10 +214,11 @@ async def process_question(message: types.Message, state: FSMContext):
     now = datetime.now().strftime("%d.%m.%Y %H:%M")
     user = message.from_user.username or "без username"
 
-    # Запись в Google Таблицу
+    # Запись в Google Таблицу (асинхронно, чтобы не блокировать)
     try:
         sheet = gspread_client.open_by_key(SHEET_ID).sheet1
-        sheet.append_row([now, name, phone, question, user])
+        # Используем asyncio.to_thread для синхронного вызова gspread
+        await asyncio.to_thread(sheet.append_row, [now, name, phone, question, user])
     except Exception as e:
         print(f"Ошибка записи в таблицу: {e}")
         await message.answer("Извините, произошла ошибка при сохранении заявки. Пожалуйста, попробуйте позже.")
