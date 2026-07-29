@@ -1,0 +1,6 @@
+aiogram>=3.0
+openai
+python-dotenv
+aiohttp
+gspread
+oauth2client
