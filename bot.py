@@ -7,10 +7,10 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from datetime import datetime
+from datetime import datetime, timezone, timedelta  # <-- добавлено
 from dotenv import load_dotenv
 
-# Google Sheets временно отключён (чтобы бот запустился без credentials.json)
+# Google Sheets временно отключён
 # import gspread
 # from oauth2client.service_account import ServiceAccountCredentials
 
@@ -19,8 +19,11 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
-# ===== ТВОЙ TELEGRAM ID (уже вставлен) =====
+# ===== ТВОЙ TELEGRAM ID =====
 ADMIN_CHAT_ID = 990317436
+
+# Часовой пояс Екатеринбурга (UTC+5)
+EKAT_TIMEZONE = timezone(timedelta(hours=5))
 
 # ========== FSM ==========
 class OrderForm(StatesGroup):
@@ -33,7 +36,7 @@ storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=storage)
 
-# ========== Клавиатура (одна кнопка) ==========
+# ========== Клавиатура ==========
 main_kb = types.ReplyKeyboardMarkup(
     keyboard=[
         [types.KeyboardButton(text="📝 Оставить заявку")]
@@ -86,7 +89,8 @@ async def process_question(message: types.Message, state: FSMContext):
     name = data["name"]
     phone = data["phone"]
     question = message.text
-    now = datetime.now().strftime("%d.%m.%Y %H:%M")
+    # Время по Екатеринбургу (UTC+5)
+    now_ekat = datetime.now(EKAT_TIMEZONE).strftime("%d.%m.%Y %H:%M")
     username = message.from_user.username or "без username"
 
     # ===== ОТПРАВКА УВЕДОМЛЕНИЯ АДМИНУ =====
@@ -97,7 +101,7 @@ async def process_question(message: types.Message, state: FSMContext):
             f"Имя: {name}\n"
             f"Телефон: {phone}\n"
             f"Вопрос: {question}\n"
-            f"Дата: {now}\n"
+            f"Дата: {now_ekat} (Екатеринбург)\n"
             f"Ник: @{username}",
             parse_mode="HTML"
         )
@@ -107,7 +111,7 @@ async def process_question(message: types.Message, state: FSMContext):
     # ===== ЗАПИСЬ В ТАБЛИЦУ (ПОКА ОТКЛЮЧЕНА) =====
     # try:
     #     sheet = gspread_client.open_by_key(SHEET_ID).sheet1
-    #     await asyncio.to_thread(sheet.append_row, [now, name, phone, question, username])
+    #     await asyncio.to_thread(sheet.append_row, [now_ekat, name, phone, question, username])
     # except Exception as e:
     #     print(f"Ошибка записи в таблицу: {e}")
 
@@ -117,8 +121,7 @@ async def process_question(message: types.Message, state: FSMContext):
         reply_markup=main_kb
     )
 
-# ===== НОВЫЙ УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК ДЛЯ ЛЮБЫХ СООБЩЕНИЙ =====
-# Если пользователь написал что-то вне процесса заявки – показываем приветствие
+# ===== УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК =====
 @dp.message()
 async def any_message(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
@@ -128,15 +131,18 @@ async def any_message(message: types.Message, state: FSMContext):
             "Нажмите кнопку ниже, чтобы оставить заявку.",
             reply_markup=main_kb,
         )
-    # Если пользователь в состоянии – ничего не делаем, обработчики состояний сработают
 
 # ========== HTTP-сервер для Render ==========
 async def handle(request):
     return web.Response(text="Bot is running")
 
+async def health(request):
+    return web.Response(text="OK")
+
 async def run_web_server():
     app = web.Application()
     app.router.add_get("/", handle)
+    app.router.add_get("/health", health)   # для проверки работоспособности
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
