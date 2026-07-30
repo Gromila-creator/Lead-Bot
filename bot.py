@@ -8,38 +8,32 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from datetime import datetime
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
+
+# Google Sheets временно отключён (чтобы бот запустился без credentials.json)
+# import gspread
+# from oauth2client.service_account import ServiceAccountCredentials
 
 load_dotenv()
 
-# ========== НАСТРОЙКИ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
-# ID твоей Google Таблицы (скопируй из URL)
-SHEET_ID = "ТВОЙ_РАЕЛЬНЫЙ_SHEET_ID"   # замени!
-# Твой Telegram ID (узнай у @userinfobot)
-ADMIN_CHAT_ID = 123456789             # замени!
+# ===== ВАЖНО: замени 123456789 на свой Telegram ID (узнай у @userinfobot) =====
+ADMIN_CHAT_ID = 990317436  # ← сюда вставь свой ID (не ник!)
 
-# ========== ПОДКЛЮЧЕНИЕ К GOOGLE SHEETS ==========
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-gspread_client = gspread.authorize(creds)
-
-# ========== FSM (состояния) ==========
+# ========== FSM ==========
 class OrderForm(StatesGroup):
     waiting_for_name = State()
     waiting_for_phone = State()
     waiting_for_question = State()
 
-# ========== БОТ И ДИСПЕТЧЕР ==========
+# ========== Бот ==========
 storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=storage)
 
-# ========== КЛАВИАТУРА (одна кнопка) ==========
+# ========== Клавиатура (одна кнопка) ==========
 main_kb = types.ReplyKeyboardMarkup(
     keyboard=[
         [types.KeyboardButton(text="📝 Оставить заявку")]
@@ -47,7 +41,7 @@ main_kb = types.ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-# ========== ОБРАБОТЧИКИ ==========
+# ========== Обработчики ==========
 @dp.message(CommandStart())
 async def start(message: types.Message):
     await message.answer(
@@ -79,7 +73,6 @@ async def process_name(message: types.Message, state: FSMContext):
 @dp.message(OrderForm.waiting_for_phone)
 async def process_phone(message: types.Message, state: FSMContext):
     phone = message.text.strip()
-    # Проверка: начинается с + и 12 цифр, или просто 11 цифр
     if not (phone.startswith("+") and phone[1:].isdigit() and len(phone) >= 12) and not (phone.isdigit() and len(phone) >= 11):
         await message.answer("Пожалуйста, введите корректный номер (11 цифр или +7XXXXXXXXXX).")
         return
@@ -96,17 +89,7 @@ async def process_question(message: types.Message, state: FSMContext):
     now = datetime.now().strftime("%d.%m.%Y %H:%M")
     username = message.from_user.username or "без username"
 
-    # ===== ЗАПИСЬ В GOOGLE ТАБЛИЦУ (асинхронно) =====
-    try:
-        sheet = gspread_client.open_by_key(SHEET_ID).sheet1
-        await asyncio.to_thread(sheet.append_row, [now, name, phone, question, username])
-    except Exception as e:
-        print(f"Ошибка записи в таблицу: {e}")
-        await message.answer("Извините, ошибка сохранения. Попробуйте позже.")
-        await state.clear()
-        return
-
-    # ===== УВЕДОМЛЕНИЕ АДМИНУ =====
+    # ===== ОТПРАВКА УВЕДОМЛЕНИЯ АДМИНУ =====
     try:
         await bot.send_message(
             ADMIN_CHAT_ID,
@@ -115,11 +98,18 @@ async def process_question(message: types.Message, state: FSMContext):
             f"Телефон: {phone}\n"
             f"Вопрос: {question}\n"
             f"Дата: {now}\n"
-            f"От: @{username}",
+            f"Ник: @{username}",
             parse_mode="HTML"
         )
     except Exception as e:
         print(f"Не удалось отправить уведомление админу: {e}")
+
+    # ===== ЗАПИСЬ В ТАБЛИЦУ (ПОКА ОТКЛЮЧЕНА) =====
+    # try:
+    #     sheet = gspread_client.open_by_key(SHEET_ID).sheet1
+    #     await asyncio.to_thread(sheet.append_row, [now, name, phone, question, username])
+    # except Exception as e:
+    #     print(f"Ошибка записи в таблицу: {e}")
 
     await state.clear()
     await message.answer(
@@ -127,7 +117,7 @@ async def process_question(message: types.Message, state: FSMContext):
         reply_markup=main_kb
     )
 
-# ========== HTTP-СЕРВЕР ДЛЯ RENDER ==========
+# ========== HTTP-сервер для Render ==========
 async def handle(request):
     return web.Response(text="Bot is running")
 
