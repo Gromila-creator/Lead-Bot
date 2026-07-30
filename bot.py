@@ -124,7 +124,7 @@ async def process_phone(message: types.Message, state: FSMContext):
         return
     await state.update_data(phone=phone)
     await state.set_state(OrderForm.waiting_for_question)
-    await message.answer("Что вас интересует? (кратко опишите вопрос)")
+    await message.answer("Что вас интересует? (выберите нужные услуги)")
 
 # ===== ВОПРОС → ФИНАЛ =====
 @dp.message(OrderForm.waiting_for_question)
