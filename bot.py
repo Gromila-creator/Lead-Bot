@@ -19,8 +19,8 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
-# ===== ВАЖНО: замени 123456789 на свой Telegram ID (узнай у @userinfobot) =====
-ADMIN_CHAT_ID = 990317436  # ← сюда вставь свой ID (не ник!)
+# ===== ТВОЙ TELEGRAM ID (уже вставлен) =====
+ADMIN_CHAT_ID = 990317436
 
 # ========== FSM ==========
 class OrderForm(StatesGroup):
@@ -116,6 +116,19 @@ async def process_question(message: types.Message, state: FSMContext):
         "Спасибо! Ваша заявка принята. Мы свяжемся с вами в ближайшее время.",
         reply_markup=main_kb
     )
+
+# ===== НОВЫЙ УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК ДЛЯ ЛЮБЫХ СООБЩЕНИЙ =====
+# Если пользователь написал что-то вне процесса заявки – показываем приветствие
+@dp.message()
+async def any_message(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        await message.answer(
+            "Здравствуйте! Я бот для сбора заявок.\n"
+            "Нажмите кнопку ниже, чтобы оставить заявку.",
+            reply_markup=main_kb,
+        )
+    # Если пользователь в состоянии – ничего не делаем, обработчики состояний сработают
 
 # ========== HTTP-сервер для Render ==========
 async def handle(request):
