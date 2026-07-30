@@ -179,8 +179,8 @@ async def any_message(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
         await message.answer(
-            "Здравствуйте! Я бот для сбора заявок.\n"
-            "Нажмите кнопку ниже, чтобы оставить заявку.",
+            "Здравствуйте! Я бот сервиса Borisov Store. Мы создаем сайты.\n"
+            "Нажмите кнопку ниже, чтобы увидеть наши услуги и цены.",
             reply_markup=main_kb,
         )
 
