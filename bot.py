@@ -7,17 +7,16 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from datetime import datetime, timezone, timedelta  # <-- добавлено
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
-
-# Google Sheets временно отключён
-# import gspread
-# from oauth2client.service_account import ServiceAccountCredentials
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
+
+# ===== ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ НА GOOGLE APPS SCRIPT =====
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynOM2_io0jKnDBkuzmr779cMdJZmAUgGhb9eOoAc90Zivn70MuUMZ-wzVnP1ZqlGTydg/exec"
 
 # ===== ТВОЙ TELEGRAM ID =====
 ADMIN_CHAT_ID = 990317436
@@ -108,12 +107,23 @@ async def process_question(message: types.Message, state: FSMContext):
     except Exception as e:
         print(f"Не удалось отправить уведомление админу: {e}")
 
-    # ===== ЗАПИСЬ В ТАБЛИЦУ (ПОКА ОТКЛЮЧЕНА) =====
-    # try:
-    #     sheet = gspread_client.open_by_key(SHEET_ID).sheet1
-    #     await asyncio.to_thread(sheet.append_row, [now_ekat, name, phone, question, username])
-    # except Exception as e:
-    #     print(f"Ошибка записи в таблицу: {e}")
+    # ===== ЗАПИСЬ В ТАБЛИЦУ (НОВЫЙ БЛОК С ССЫЛКОЙ) =====
+    async with aiohttp.ClientSession() as session:
+        try:
+            # Готовим данные в формате JSON, которые ждет ваш Google Скрипт
+            payload = {
+                "date": now_ekat,       # Дата
+                "name": name,           # Имя
+                "phone": phone,         # Телефон
+                "nick": f"@{username}", # Ник Telegram
+                "question": question    # Сообщение/Вопрос
+            }
+            # Отправляем POST запрос на вашу ссылку
+            async with session.post(GOOGLE_SCRIPT_URL, json=payload) as resp:
+                response_text = await resp.text()
+                print(f"Google Sheets ответил: {response_text}")
+        except Exception as e:
+            print(f"ОШИБКА записи в таблицу Google Sheets: {e}")
 
     await state.clear()
     await message.answer(
