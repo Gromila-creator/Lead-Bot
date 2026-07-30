@@ -101,7 +101,7 @@ async def process_question(message: types.Message, state: FSMContext):
             f"Имя: {name}\n"
             f"Телефон: {phone}\n"
             f"Вопрос: {question}\n"
-            f"Дата: {now_ekat} (Екатеринбург)\n"
+            f"Дата: {now_ekat} \n"
             f"Ник: @{username}",
             parse_mode="HTML"
         )
