@@ -48,8 +48,8 @@ main_kb = types.ReplyKeyboardMarkup(
 @dp.message(CommandStart())
 async def start(message: types.Message):
     await message.answer(
-        "Здравствуйте! Я бот для сбора заявок.\n"
-        "Нажмите кнопку ниже, чтобы оставить заявку.",
+        "Здравствуйте! Я бот сервиса Borisov Store. Мы создаем сайты.\n"
+        "Нажмите кнопку ниже, чтобы увидеть наши услуги и цены.",
         reply_markup=main_kb,
     )
 
@@ -143,7 +143,7 @@ async def process_question(message: types.Message, state: FSMContext):
             f"🆕 <b>Новая заявка!</b>\n"
             f"Имя: {name}\n"
             f"Телефон: {phone}\n"
-            f"Вопрос: {question}\n"
+            f"Заказ: {question}\n"
             f"Дата: {now_ekat}\n"
             f"Ник: @{username}",
             parse_mode="HTML"
