@@ -16,7 +16,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
 # ===== ССЫЛКА НА ВАШ GOOGLE APPS SCRIPT =====
-GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynOM2_io0jKnDBkuzmr779cMdJZmAUgGhb9eOoAc90Zivn70MuUMZ-wzVnP1ZqlGTydg/exec"
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbywaH8eVBNuO1X0AtOaw4FMz__RL3YLCTIrHPSTaccA3kfqvVWMLQBMHXGN_oJvPxxmRQ/exec"
 
 # ===== ТВОЙ TELEGRAM ID =====
 ADMIN_CHAT_ID = 990317436
