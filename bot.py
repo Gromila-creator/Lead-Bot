@@ -16,7 +16,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
 # ===== ССЫЛКА НА ТВОЙ APPS SCRIPT =====
-GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzK0urx8L9XanLwW3YiYNPdlpCf_lylZqlNremnifkGFefgXn357Q_Py2phQ3z4YqTnyA/exec"
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx4Yt9nVJMA4NeO2SmdDYo8KiZTZ0mC-2KTkY3FFYDhnu3kv6zDJ2RBgGu0bT9Mwo3ng/exec"
 
 # Часовой пояс Екатеринбурга (UTC+5)
 EKAT_TIMEZONE = timezone(timedelta(hours=5))
