@@ -15,7 +15,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
-# ===== ССЫЛКА НА ВАШ GOOGLE APPS SCRIPT =====
+# ===== НОВАЯ ССЫЛКА НА GOOGLE APPS SCRIPT =====
 GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXndEAQ7z8ZM9-AfHziDiHrtbfVMansIXGT0n02HNoNWZo4wIJF8fd7yPil3Oczisj8w/exec"
 
 # ===== ТВОЙ TELEGRAM ID =====
@@ -26,10 +26,9 @@ EKAT_TIMEZONE = timezone(timedelta(hours=5))
 
 # ========== FSM (состояния) ==========
 class OrderForm(StatesGroup):
-    waiting_for_confirmation = State()  # новое состояние для ожидания "да"
+    waiting_for_confirmation = State()
     waiting_for_name = State()
     waiting_for_phone = State()
-    waiting_for_question = State()
 
 # ========== Бот ==========
 storage = MemoryStorage()
@@ -62,10 +61,9 @@ async def cancel_order(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("Оформление заявки отменено.", reply_markup=main_kb)
 
-# ===== НАЧАЛО ЗАЯВКИ: показываем прайс и просим подтверждение =====
+# ===== НАЧАЛО ЗАЯВКИ: показываем прайс =====
 @dp.message(F.text == "📝 Оставить заявку")
 async def start_order(message: types.Message, state: FSMContext):
-    # Полный прайс с чёткими цифрами (без "от")
     price_text = (
         "📋 <b>Наши услуги и цены</b>\n\n"
         "🔹 <b>Лендинг</b> — 8 000 ₽\n"
@@ -93,16 +91,15 @@ async def start_order(message: types.Message, state: FSMContext):
     await message.answer(price_text, parse_mode="HTML")
     await state.set_state(OrderForm.waiting_for_confirmation)
 
-# ===== ОЖИДАНИЕ ПОДТВЕРЖДЕНИЯ («да») =====
+# ===== ОЖИДАНИЕ ПОДТВЕРЖДЕНИЯ =====
 @dp.message(OrderForm.waiting_for_confirmation)
 async def confirm_order(message: types.Message, state: FSMContext):
     if message.text.lower() == "да":
-        # Переходим к сбору имени
         await state.set_state(OrderForm.waiting_for_name)
         await message.answer("Как вас зовут?")
     else:
         await message.answer(
-            "Пожалуйста, напишите <b>«да»</b>, чтобы продолжить оформление заявки, "
+            "Пожалуйста, напишите <b>«да»</b>, чтобы продолжить, "
             "или отправьте /cancel, чтобы отменить.",
             parse_mode="HTML"
         )
@@ -114,24 +111,16 @@ async def process_name(message: types.Message, state: FSMContext):
     await state.set_state(OrderForm.waiting_for_phone)
     await message.answer("Ваш номер телефона (в формате +7XXXXXXXXXX):")
 
-# ===== ТЕЛЕФОН =====
+# ===== ТЕЛЕФОН → ФИНАЛ =====
 @dp.message(OrderForm.waiting_for_phone)
 async def process_phone(message: types.Message, state: FSMContext):
     phone = message.text.strip()
     if not (phone.startswith("+") and phone[1:].isdigit() and len(phone) >= 12) and not (phone.isdigit() and len(phone) >= 11):
         await message.answer("Пожалуйста, введите корректный номер (11 цифр или +7XXXXXXXXXX).")
         return
-    await state.update_data(phone=phone)
-    await state.set_state(OrderForm.waiting_for_question)
-    await message.answer("Что вас интересует? (выберите нужные услуги)")
-
-# ===== ВОПРОС → ФИНАЛ =====
-@dp.message(OrderForm.waiting_for_question)
-async def process_question(message: types.Message, state: FSMContext):
+    
     data = await state.get_data()
     name = data["name"]
-    phone = data["phone"]
-    question = message.text
     now_ekat = datetime.now(EKAT_TIMEZONE).strftime("%d.%m.%Y %H:%M")
     username = message.from_user.username or "без username"
 
@@ -142,7 +131,6 @@ async def process_question(message: types.Message, state: FSMContext):
             f"🆕 <b>Новая заявка!</b>\n"
             f"Имя: {name}\n"
             f"Телефон: {phone}\n"
-            f"Заказ: {question}\n"
             f"Дата: {now_ekat}\n"
             f"Ник: @{username}",
             parse_mode="HTML"
@@ -157,8 +145,7 @@ async def process_question(message: types.Message, state: FSMContext):
                 "date": now_ekat,
                 "name": name,
                 "phone": phone,
-                "nick": f"@{username}",
-                "question": question
+                "nick": f"@{username}"
             }
             async with session.post(GOOGLE_SCRIPT_URL, json=payload) as resp:
                 response_text = await resp.text()
@@ -172,7 +159,7 @@ async def process_question(message: types.Message, state: FSMContext):
         reply_markup=main_kb
     )
 
-# ===== УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК ДЛЯ ЛЮБЫХ СООБЩЕНИЙ (вне заявки) =====
+# ===== УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК =====
 @dp.message()
 async def any_message(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
