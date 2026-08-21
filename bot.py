@@ -15,18 +15,14 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
-# ===== НОВАЯ ССЫЛКА НА GOOGLE APPS SCRIPT =====
+# ===== ССЫЛКА НА ТВОЙ APPS SCRIPT =====
 GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzK0urx8L9XanLwW3YiYNPdlpCf_lylZqlNremnifkGFefgXn357Q_Py2phQ3z4YqTnyA/exec"
-
-# ===== ТВОЙ TELEGRAM ID =====
-ADMIN_CHAT_ID = 990317436
 
 # Часовой пояс Екатеринбурга (UTC+5)
 EKAT_TIMEZONE = timezone(timedelta(hours=5))
 
 # ========== FSM (состояния) ==========
 class OrderForm(StatesGroup):
-    waiting_for_confirmation = State()
     waiting_for_name = State()
     waiting_for_phone = State()
 
@@ -47,8 +43,8 @@ main_kb = types.ReplyKeyboardMarkup(
 @dp.message(CommandStart())
 async def start(message: types.Message):
     await message.answer(
-        "Здравствуйте! Я бот сервиса Borisov Store. Мы создаем сайты.\n"
-        "Нажмите кнопку ниже, чтобы увидеть наши услуги и цены.",
+        "Здравствуйте! Я бот сервиса Borisov Store.\n"
+        "Нажмите кнопку ниже, чтобы оставить заявку.",
         reply_markup=main_kb,
     )
 
@@ -61,48 +57,11 @@ async def cancel_order(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("Оформление заявки отменено.", reply_markup=main_kb)
 
-# ===== НАЧАЛО ЗАЯВКИ: показываем прайс =====
+# ===== НАЧАЛО ЗАЯВКИ =====
 @dp.message(F.text == "📝 Оставить заявку")
 async def start_order(message: types.Message, state: FSMContext):
-    price_text = (
-        "📋 <b>Наши услуги и цены</b>\n\n"
-        "🔹 <b>Лендинг</b> — 8 000 ₽\n"
-        "🔹 <b>Информационный сайт</b> — 12 000 ₽\n"
-        "🔹 <b>Сайт-визитка</b> — 16 000 ₽\n"
-        "🔹 <b>Портфолио</b> — 20 000 ₽\n"
-        "🔹 <b>Интернет-магазин</b> — 24 000 ₽\n"
-        "🔹 <b>Универсальный сайт</b> — 40 000 ₽\n\n"
-        "➕ <b>Дополнительные услуги:</b>\n"
-        "• Бесплатно установим: favicon, логотипы, контакты, ссылки на оплату\n"
-        "• Форма обратной связи (Formspree) — 1 600 ₽\n"
-        "• Карта проезда — 1 600 ₽\n"
-        "• Всплывающий виджет для звонка — 2 400 ₽\n"
-        "• Блок «Отзывы» — 2 400 ₽\n"
-        "• Страница «Договор оферты» — 2 400 ₽\n"
-        "• Страница «Политика конфиденциальности» — 2 400 ₽\n"        
-        "• Добавление 6 товаров (для интернет-магазина) — 2 400 ₽\n"
-        "• Установка Яндекс-Метрики — 2 400 ₽\n"
-        "• Еще 2 товара (для лендинга) — 4 000 ₽\n"
-        "• Автоматическая оплата (ЮKassa) — 4 000 ₽\n"
-        "• Интеграция с календарём — 4 000 ₽\n"
-        "• Приём заказов в Google Таблицу — 4 000 ₽\n\n"
-        "Теперь, когда вы знаете цены, напишите <b>«да»</b>, и мы продолжим оформление заявки."
-    )
-    await message.answer(price_text, parse_mode="HTML")
-    await state.set_state(OrderForm.waiting_for_confirmation)
-
-# ===== ОЖИДАНИЕ ПОДТВЕРЖДЕНИЯ =====
-@dp.message(OrderForm.waiting_for_confirmation)
-async def confirm_order(message: types.Message, state: FSMContext):
-    if message.text.lower() == "да":
-        await state.set_state(OrderForm.waiting_for_name)
-        await message.answer("Как вас зовут?")
-    else:
-        await message.answer(
-            "Пожалуйста, напишите <b>«да»</b>, чтобы продолжить, "
-            "или отправьте /cancel, чтобы отменить.",
-            parse_mode="HTML"
-        )
+    await state.set_state(OrderForm.waiting_for_name)
+    await message.answer("Как вас зовут?")
 
 # ===== ИМЯ =====
 @dp.message(OrderForm.waiting_for_name)
@@ -124,20 +83,6 @@ async def process_phone(message: types.Message, state: FSMContext):
     now_ekat = datetime.now(EKAT_TIMEZONE).strftime("%d.%m.%Y %H:%M")
     username = message.from_user.username or "без username"
 
-    # ===== ОТПРАВКА УВЕДОМЛЕНИЯ АДМИНУ =====
-    try:
-        await bot.send_message(
-            ADMIN_CHAT_ID,
-            f"🆕 <b>Новая заявка!</b>\n"
-            f"Имя: {name}\n"
-            f"Телефон: {phone}\n"
-            f"Дата: {now_ekat}\n"
-            f"Ник: @{username}",
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        print(f"Не удалось отправить уведомление админу: {e}")
-
     # ===== ЗАПИСЬ В ТАБЛИЦУ (Google Apps Script) =====
     async with aiohttp.ClientSession() as session:
         try:
@@ -155,7 +100,7 @@ async def process_phone(message: types.Message, state: FSMContext):
 
     await state.clear()
     await message.answer(
-        "Спасибо! Ваша заявка принята. Мы свяжемся с вами в ближайшее время.",
+        "Спасибо! Сергей свяжется с вами в ближайшее время.",
         reply_markup=main_kb
     )
 
@@ -165,8 +110,8 @@ async def any_message(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
         await message.answer(
-            "Здравствуйте! Я бот сервиса Borisov Store. Мы создаем сайты.\n"
-            "Нажмите кнопку ниже, чтобы увидеть наши услуги и цены.",
+            "Здравствуйте! Я бот сервиса Borisov Store.\n"
+            "Нажмите кнопку ниже, чтобы оставить заявку.",
             reply_markup=main_kb,
         )
 
