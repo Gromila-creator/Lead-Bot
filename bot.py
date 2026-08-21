@@ -21,7 +21,7 @@ GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwyAmrGH6eB8itSXoFV
 # Часовой пояс Екатеринбурга (UTC+5)
 EKAT_TIMEZONE = timezone(timedelta(hours=5))
 
-# ========== FSM (состояния) ==========
+# ========== FSM ==========
 class OrderForm(StatesGroup):
     waiting_for_name = State()
     waiting_for_phone = State()
@@ -31,7 +31,7 @@ storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=storage)
 
-# ========== Клавиатура ==========
+# ========== Клавиатура (одна кнопка) ==========
 main_kb = types.ReplyKeyboardMarkup(
     keyboard=[
         [types.KeyboardButton(text="📝 Оставить заявку")]
@@ -44,7 +44,8 @@ main_kb = types.ReplyKeyboardMarkup(
 async def start(message: types.Message):
     await message.answer(
         "Здравствуйте! Я бот сервиса Borisov Store.\n"
-        "Нажмите кнопку ниже, чтобы оставить заявку.",
+        "Нажмите кнопку ниже, чтобы оставить заявку.\n"
+        "Если передумаете, отправьте /cancel.",
         reply_markup=main_kb,
     )
 
@@ -57,20 +58,23 @@ async def cancel_order(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("Оформление заявки отменено.", reply_markup=main_kb)
 
-# ===== НАЧАЛО ЗАЯВКИ =====
 @dp.message(F.text == "📝 Оставить заявку")
 async def start_order(message: types.Message, state: FSMContext):
     await state.set_state(OrderForm.waiting_for_name)
-    await message.answer("Как вас зовут?")
+    await message.answer(
+        "Как вас зовут?\n\n"
+        "Если передумаете, отправьте /cancel."
+    )
 
-# ===== ИМЯ =====
 @dp.message(OrderForm.waiting_for_name)
 async def process_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(OrderForm.waiting_for_phone)
-    await message.answer("Ваш номер телефона (в формате +7XXXXXXXXXX):")
+    await message.answer(
+        "Ваш номер телефона (в формате +7XXXXXXXXXX):\n\n"
+        "Если передумаете, отправьте /cancel."
+    )
 
-# ===== ТЕЛЕФОН → ФИНАЛ =====
 @dp.message(OrderForm.waiting_for_phone)
 async def process_phone(message: types.Message, state: FSMContext):
     phone = message.text.strip()
@@ -83,7 +87,7 @@ async def process_phone(message: types.Message, state: FSMContext):
     now_ekat = datetime.now(EKAT_TIMEZONE).strftime("%d.%m.%Y %H:%M")
     username = message.from_user.username or "без username"
 
-    # ===== ОТПРАВКА ДАННЫХ В ТАБЛИЦУ (через data= для совместимости со скриптом сайта) =====
+    # ===== ОТПРАВКА ДАННЫХ В ТАБЛИЦУ =====
     async with aiohttp.ClientSession() as session:
         try:
             payload = {
@@ -92,7 +96,6 @@ async def process_phone(message: types.Message, state: FSMContext):
                 "phone": phone,
                 "nick": f"@{username}"
             }
-            # Отправляем как form data (data=), а не json=
             async with session.post(GOOGLE_SCRIPT_URL, data=payload) as resp:
                 response_text = await resp.text()
                 print(f"Google Sheets ответил: {response_text}")
@@ -112,7 +115,8 @@ async def any_message(message: types.Message, state: FSMContext):
     if current_state is None:
         await message.answer(
             "Здравствуйте! Я бот сервиса Borisov Store.\n"
-            "Нажмите кнопку ниже, чтобы оставить заявку.",
+            "Нажмите кнопку ниже, чтобы оставить заявку.\n"
+            "Если передумаете, отправьте /cancel.",
             reply_markup=main_kb,
         )
 
