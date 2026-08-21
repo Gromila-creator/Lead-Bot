@@ -15,8 +15,8 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
 
-# ===== ССЫЛКА НА ТВОЙ APPS SCRIPT =====
-GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxyF0RrDsW4Ib-778DV6FECmuyUu90pSXnkveOn3nfCiu1uT_EGyAjN6t6wdY5vEgIrVA/exec"
+# ===== ССЫЛКА НА РАБОЧИЙ СКРИПТ С САЙТА =====
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwyAmrGH6eB8itSXoFVDJvnaX9nPDwysQoTLuWP5VvshEYXMB1h0bYCkUKT4tBTrM9pNg/exec"
 
 # Часовой пояс Екатеринбурга (UTC+5)
 EKAT_TIMEZONE = timezone(timedelta(hours=5))
@@ -83,7 +83,7 @@ async def process_phone(message: types.Message, state: FSMContext):
     now_ekat = datetime.now(EKAT_TIMEZONE).strftime("%d.%m.%Y %H:%M")
     username = message.from_user.username or "без username"
 
-    # ===== ЗАПИСЬ В ТАБЛИЦУ (Google Apps Script) =====
+    # ===== ОТПРАВКА ДАННЫХ В ТАБЛИЦУ (через data= для совместимости со скриптом сайта) =====
     async with aiohttp.ClientSession() as session:
         try:
             payload = {
@@ -92,7 +92,8 @@ async def process_phone(message: types.Message, state: FSMContext):
                 "phone": phone,
                 "nick": f"@{username}"
             }
-            async with session.post(GOOGLE_SCRIPT_URL, json=payload) as resp:
+            # Отправляем как form data (data=), а не json=
+            async with session.post(GOOGLE_SCRIPT_URL, data=payload) as resp:
                 response_text = await resp.text()
                 print(f"Google Sheets ответил: {response_text}")
         except Exception as e:
